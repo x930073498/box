@@ -11,14 +11,6 @@ import java.util.concurrent.ConcurrentHashMap
 
 interface BoxRegistry {
     fun <K, V> getBox(factory: BoxFactory<K, V>): Box<K, V>
-    fun <K, V, T> getChangeFlow(
-        factory: BoxFactory<K, V>,
-        option: QueryOption = QueryOption.Standard,
-        keysChangeNotifyFilter: suspend (Collection<K>) -> Boolean = {
-            true
-        },
-        query: (Box<K, V>) -> T
-    ): Flow<T>
 
     fun clear()
 }
@@ -31,14 +23,6 @@ private class DefaultBoxRegistry : BoxRegistry {
         } as Box<K, V>
     }
 
-    override fun <K, V, T> getChangeFlow(
-        factory: BoxFactory<K, V>,
-        option: QueryOption,
-        keysChangeNotifyFilter: suspend (Collection<K>) -> Boolean,
-        query: (Box<K, V>) -> T
-    ): Flow<T> {
-        return getBox(factory).query(option, keysChangeNotifyFilter, query)
-    }
 
     override fun clear() {
         map.values.forEach {
@@ -77,7 +61,7 @@ sealed interface QueryOption {
     object OnlyChange : QueryOption
 }
 
-fun <K, V> Box() = Box.create<K, V>()
+fun <K, V> Box(): Box<K, V> = DefaultBox()
 operator fun <K, V, T> Box<K, V>.get(key: K, clazz: Class<T>): T? {
     val value = get(key)
     return if (clazz.isInstance(value)) clazz.cast(value) else null
@@ -85,25 +69,24 @@ operator fun <K, V, T> Box<K, V>.get(key: K, clazz: Class<T>): T? {
 
 inline fun <K, reified T> Box<K, *>.getInstance(key: K): T? = get(key, T::class.java)
 
+operator fun <K, V> Box<K, V>.set(key: K, value: V) = put(key, value)
 
-interface Box<K, V> : MutableMap<K, V> {
-    companion object {
-        fun <K, V> create(): Box<K, V> = DefaultBox()
-    }
-
+interface Box<K, V> {
+    val size: Int
+    val keys: Set<K>
+    fun containsKey(key: K): Boolean
+    operator fun get(key: K): V?
+    fun clear()
+    fun put(key: K, value: V)
+    fun remove(key: K): V?
     fun <R> query(
         option: QueryOption = QueryOption.Standard,
         keysChangeNotifyFilter: suspend (Collection<K>) -> Boolean = { true },
         builder: suspend Box<K, V>.() -> R
     ): Flow<R>
-}
-
-
-private class Cache<K> {
-    //keys
-    //changeKeys1,changeKeys2
 
 }
+
 
 private class DefaultBox<K, V> : Box<K, V> {
 
@@ -125,26 +108,15 @@ private class DefaultBox<K, V> : Box<K, V> {
         return map.containsKey(key)
     }
 
-    override fun containsValue(value: V): Boolean {
-        if (value == null) return false
-        return map.containsValue(value)
-    }
 
     override fun get(key: K): V? {
         if (key == null) return null
         return map[key]
     }
 
-    override fun isEmpty(): Boolean {
-        return map.isEmpty()
-    }
 
-    override val entries: MutableSet<MutableMap.MutableEntry<K, V>>
-        get() = map.entries
     override val keys: MutableSet<K>
         get() = map.keys
-    override val values: MutableCollection<V>
-        get() = map.values
 
     override fun clear() {
         val keys = map.keys().toList()
@@ -152,18 +124,13 @@ private class DefaultBox<K, V> : Box<K, V> {
         changeFlow.tryEmit(Action.Keys(keys))
     }
 
-    override fun put(key: K, value: V): V? {
-        if (key == null) return null
-        if (value == null) return remove(key)
-        val result = map.put(key, value)
+    override fun put(key: K, value: V) {
+        if (key == null) return
+        if (value == null) return
+        map[key] = value
         changeFlow.tryEmit(Action.Key(key))
-        return result
     }
 
-    override fun putAll(from: Map<out K, V>) {
-        map.putAll(from)
-        changeFlow.tryEmit(Action.Keys(from.keys))
-    }
 
     override fun remove(key: K): V? {
         if (key == null) return null
@@ -222,7 +189,9 @@ fun <K, V> Box<K, V>.queryKey(key: K, option: QueryOption = QueryOption.Standard
 fun <K, V> BoxProvider.getBox(factory: BoxFactory<K, V>): Box<K, V> = registry.getBox(factory)
 
 fun <K, V> Box<K, Any?>.getOrCreate(key: K, builder: Box<K, Any?>.() -> V): V {
-    return getOrPut(key) {
-        builder(this)
-    } as V
+    var data = get(key) as? V
+    if (data != null) return data
+    data = builder()
+    put(key, data)
+    return data
 }
