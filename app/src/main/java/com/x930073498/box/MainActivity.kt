@@ -1,27 +1,35 @@
 package com.x930073498.box
 
-import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import androidx.activity.viewModels
+import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
-import androidx.lifecycle.viewModelScope
 import by.kirich1409.viewbindingdelegate.viewBinding
 import com.x930073498.box.databinding.ActivityMainBinding
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
-import kotlinx.coroutines.launch
+import kotlin.reflect.KProperty1
 
-class MainActivity : AppCompatActivity() {
+class MainActivity : AppCompatActivity(R.layout.activity_main) {
     private val viewModel by viewModels<MainViewModel>()
     private val binding by viewBinding<ActivityMainBinding>()
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_main)
-        viewModel.subscribe(MainViewModel::text).onEach {
-            binding.tv.text = it
-        }.launchIn(lifecycleScope)
+        viewModel.subscribe(MainViewModel::text, option = QueryOption.OnlySet)
+            .onEach {
+                binding.tv.text = it
+            }
+            .launchIn(lifecycleScope)
         binding.btn.setOnClickListener {
             viewModel.setText()
         }
     }
+}
+interface CoroutineScopeProvider{
+    val coroutineScope:CoroutineScope
+//    fun <T:BoxProvider,V,S>T.withProperty(property:KProperty1<T,V>,
+//                                          option:QueryOption=QueryOption.Standard,
+//                                          flowMap:Flow<V>.()->Flow<S>)=subscribe(property)
 }

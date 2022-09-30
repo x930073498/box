@@ -12,14 +12,11 @@ class MainViewModel(
     application: Application,
     private val _savedStateHandle: SavedStateHandle
 ) : AndroidViewModel(application), BoxProvider by BoxProvider() {
-    var text by property("")
+    var text by property(UUID.randomUUID().toString()) //String 类型
         private set
 
-
     fun setText() {
-        viewModelScope.launch(Dispatchers.IO) {
-            text = UUID.randomUUID().toString()
-        }
+        text = UUID.randomUUID().toString()
     }
 
 }

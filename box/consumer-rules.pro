@@ -1,0 +1,1 @@
+-keep public class * extends com.x930073498.box.BoxProvider

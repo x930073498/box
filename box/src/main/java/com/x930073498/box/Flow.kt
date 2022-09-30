@@ -1,8 +1,8 @@
 package com.x930073498.box
 
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.channelFlow
-import kotlinx.coroutines.flow.filterIsInstance
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import kotlin.reflect.KProperty1
 import kotlin.reflect.jvm.isAccessible
@@ -11,16 +11,22 @@ import kotlin.reflect.jvm.isAccessible
 internal object NoValue
 
 
-inline fun <T, reified V> T.subscribe(
+inline fun <T,  reified V> T.subscribe(
     property: KProperty1<T, V>,
     option: QueryOption = QueryOption.Standard
 ): Flow<V> where T : BoxProvider {
     property.isAccessible = true
     val delegate = property.getDelegate(this)
-    if (delegate !is Subscribable){
+    if (delegate !is Subscribable) {
         throw IllegalArgumentException("property must is Subscribable")
     }
-    return propertyBox().queryKey(property, option).filterIsInstance()
+    return propertyBox()
+        .queryKey(property, option)
+        .onStart {
+            property.get(this@subscribe)
+        }
+        .flowOn(Dispatchers.IO)
+        .filterIsInstance()
 }
 
 
@@ -32,6 +38,7 @@ inline fun <T, reified P1, reified P2, R> T.subscribe(
 ) where T : BoxProvider = channelFlow {
     val flow1 = subscribe(property1, option)
     val flow2 = subscribe(property2, option)
+
     var result1: Any? = NoValue
     var result2: Any? = NoValue
     launch {

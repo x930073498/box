@@ -10,16 +10,18 @@ import kotlinx.coroutines.launch
 import java.util.concurrent.ConcurrentHashMap
 
 interface BoxRegistry {
-    fun <K, V> getBox(factory: BoxFactory<K, V>): Box<K, V>
+    fun <K, V> BoxProvider.getBox(factory: BoxFactory<K, V>): Box<K, V>
 
     fun clear()
 }
 
 private class DefaultBoxRegistry : BoxRegistry {
     private val map = mutableMapOf<BoxFactory<*, *>, Box<*, *>>()
-    override fun <K, V> getBox(factory: BoxFactory<K, V>): Box<K, V> {
+    override fun <K, V> BoxProvider.getBox(factory: BoxFactory<K, V>): Box<K, V> {
         return map.getOrPut(factory) {
-            factory.create()
+            with(factory) {
+                create()
+            }
         } as Box<K, V>
     }
 
@@ -36,15 +38,13 @@ interface BoxProvider {
     companion object : BoxProvider by BoxProvider()
 
     val registry: BoxRegistry
-    fun destroy() {
-        registry.clear()
-    }
+
 }
 
 fun BoxRegistry(): BoxRegistry = DefaultBoxRegistry()
 
 interface BoxFactory<K, V> {
-    fun create(): Box<K, V> = Box()
+    fun BoxProvider.create(): Box<K, V> = Box()
 }
 
 fun BoxProvider(): BoxProvider = DefaultBoxProvider()
@@ -57,8 +57,8 @@ private class DefaultBoxProvider : BoxProvider {
 
 sealed interface QueryOption {
     object Standard : QueryOption
-    object Single : QueryOption
-    object OnlyChange : QueryOption
+    object OnlyCreate : QueryOption
+    object OnlySet : QueryOption
 }
 
 fun <K, V> Box(): Box<K, V> = DefaultBox()
@@ -145,39 +145,55 @@ private class DefaultBox<K, V> : Box<K, V> {
         keysChangeNotifyFilter: suspend (Collection<K>) -> Boolean,
         builder: suspend Box<K, V>.() -> R
     ): Flow<R> {
-        return callbackFlow {
-            val realFlow = changeFlow.map {
-                when (it) {
-                    is Action.Keys -> {
-                        it.keys
-                    }
-                    is Action.Key -> {
-                        listOf(it.key)
-                    }
+        val realFlow = changeFlow.map {
+            when (it) {
+                is Action.Keys -> {
+                    it.keys
                 }
-            }.filter(keysChangeNotifyFilter)
-            when (option) {
-                QueryOption.OnlyChange -> {
-                    launch {
-                        realFlow.collect {
-                            send(builder())
-                        }
-                    }
-                }
-                QueryOption.Single -> {
-                    send(builder())
-                }
-                QueryOption.Standard -> {
-                    send(builder())
-                    launch {
-                        realFlow.collect {
-                            send(builder())
-                        }
-                    }
+                is Action.Key -> {
+                    listOf(it.key)
                 }
             }
-            awaitClose()
-        }.flowOn(Dispatchers.IO)
+        }.filter(keysChangeNotifyFilter)
+        return when (option) {
+            QueryOption.OnlyCreate -> {
+                flow {
+                    emit(builder())
+                }
+            }
+            QueryOption.OnlySet -> {
+                realFlow.map {
+                    builder()
+                }
+            }
+            QueryOption.Standard -> {
+                merge(flow { emit(builder()) },realFlow.map { builder() })
+            }
+        }
+//        return callbackFlow {
+//
+//            when (option) {
+//                QueryOption.OnlySet -> {
+//                    launch {
+//                        realFlow.collect {
+//                            send(builder())
+//                        }
+//                    }
+//                }
+//                QueryOption.OnlyCreate -> {
+//                    send(builder())
+//                }
+//                QueryOption.Standard -> {
+//                    send(builder())
+//                    launch {
+//                        realFlow.collect {
+//                            send(builder())
+//                        }
+//                    }
+//                }
+//            }
+//            awaitClose()
+//        }.flowOn(Dispatchers.IO)
     }
 
 }
@@ -186,7 +202,8 @@ fun <K, V> Box<K, V>.queryKey(key: K, option: QueryOption = QueryOption.Standard
     query(option = option, keysChangeNotifyFilter = { it.contains(key) }) { get(key) }
         .flowOn(Dispatchers.IO)
 
-fun <K, V> BoxProvider.getBox(factory: BoxFactory<K, V>): Box<K, V> = registry.getBox(factory)
+fun <K, V> BoxProvider.getBox(factory: BoxFactory<K, V>): Box<K, V> =
+    with(registry) { getBox(factory) }
 
 fun <K, V> Box<K, Any?>.getOrCreate(key: K, builder: Box<K, Any?>.() -> V): V {
     var data = get(key) as? V
