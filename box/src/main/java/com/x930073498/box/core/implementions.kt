@@ -1,3 +1,5 @@
+@file:Suppress("UNCHECKED_CAST")
+
 package com.x930073498.box.core
 
 import kotlinx.coroutines.CoroutineScope
@@ -56,6 +58,10 @@ internal open class MapBox<K, V>(override val flowHolder: FlowEmitter<K, V>) : B
 
     override val keys: Collection<K>
         get() = map.keys
+
+    override fun containsKey(key: K): Boolean {
+        return map.containsKey(key)
+    }
 
     override fun remove(key: K) {
         synchronized(this) {

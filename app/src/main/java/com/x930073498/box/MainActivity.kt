@@ -5,8 +5,7 @@ import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.flowWithLifecycle
+import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.lifecycleScope
 import by.kirich1409.viewbindingdelegate.viewBinding
 import com.x930073498.box.core.BoxOwner
@@ -15,12 +14,19 @@ import com.x930073498.box.event.Event
 import com.x930073498.box.event.eventFlow
 import com.x930073498.box.property.subscribe
 import kotlinx.coroutines.*
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.onCompletion
 import kotlinx.coroutines.flow.onEach
+
 object ToastEvent : Event<String> by Event(true, 1)
 //交流
 internal object EventExchange:BoxOwner by BoxOwner()
+fun <T,OWNER,V>T.doOnBox(owner: OWNER,transformer:suspend OWNER.()->Flow<V>) where T:LifecycleOwner,OWNER:BoxOwner{
+    lifecycleScope.launch {
+        transformer.invoke(owner).collect()
+    }
+}
 
 class MainActivity : AppCompatActivity(R.layout.activity_main), BoxOwner by BoxOwner() {
 
@@ -28,12 +34,10 @@ class MainActivity : AppCompatActivity(R.layout.activity_main), BoxOwner by BoxO
     private val binding by viewBinding<ActivityMainBinding>()
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        lifecycleScope.launch {
-            with(viewModel) {
-                subscribe(::a).onEach {
-                    binding.tvA.text = "$it"
-                }
-            }.collect()
+        doOnBox(viewModel){
+            subscribe(::a).onEach {
+                binding.tvA.text = "$it"
+            }
         }
         lifecycleScope.launch {
             viewModel.subscribe(viewModel::b)

@@ -2,6 +2,7 @@ package com.x930073498.box.core
 
 import kotlinx.coroutines.flow.SharedFlow
 
+
 sealed interface DataAction<K, V> {
     val key: K
 
@@ -29,6 +30,7 @@ interface Box<K, V> {
     operator fun get(initializer: Initializer<K, V>): V
     operator fun set(key: K, value: V)
     fun remove(key: K)
+    fun containsKey(key: K):Boolean
     val flowHolder: FlowHolder<K, V>
 }
 

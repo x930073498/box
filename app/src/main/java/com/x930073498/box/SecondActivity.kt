@@ -3,6 +3,8 @@ package com.x930073498.box
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.widget.Toast
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.flowWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import by.kirich1409.viewbindingdelegate.viewBinding
 import com.x930073498.box.databinding.ActivitySecondBinding
@@ -28,6 +30,7 @@ class SecondActivity : AppCompatActivity() {
         lifecycleScope.launch {
             var toast: Toast? = null
             EventExchange.eventFlow(ToastEvent)
+                .flowWithLifecycle(lifecycle,Lifecycle.State.CREATED)
                 .onEach {
                     toast?.cancel()
                     toast = Toast.makeText(applicationContext, it, Toast.LENGTH_LONG)

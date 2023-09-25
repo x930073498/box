@@ -1,6 +1,6 @@
 pluginManagement {
     repositories {
-        maven { url 'https://maven.aliyun.com/repository/public/' }
+
         maven { url 'https://maven.aliyun.com/repository/public' }
         maven { url 'https://maven.aliyun.com/repository/google' }
         maven { url 'https://maven.aliyun.com/repository/gradle-plugin' }
@@ -13,10 +13,10 @@ pluginManagement {
 dependencyResolutionManagement {
     repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
     repositories {
-        maven { url 'https://maven.aliyun.com/repository/public/' }
         maven { url 'https://maven.aliyun.com/repository/public' }
         maven { url 'https://maven.aliyun.com/repository/google' }
         maven { url 'https://maven.aliyun.com/repository/gradle-plugin' }
+        maven{ url 'https://jitpack.io'}
         google()
         mavenCentral()
     }
@@ -24,3 +24,6 @@ dependencyResolutionManagement {
 rootProject.name = "box"
 include ':app'
 include ':box'
+include ':payment'
+include ':android-box'
+include ':test'

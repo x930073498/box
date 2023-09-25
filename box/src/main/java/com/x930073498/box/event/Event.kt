@@ -21,7 +21,6 @@ fun <V> Event(
 
 
 fun <T, V> T.pushEvent(event: Event<V>, value: V) where T : BoxOwner {
-
     pushEventInternal(event, value)
 }
 
