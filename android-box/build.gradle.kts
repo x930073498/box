@@ -1,4 +1,5 @@
 import com.android.sdklib.AndroidVersion.VersionCodes
+
 plugins {
     id("com.android.library")
     id("org.jetbrains.kotlin.android")
@@ -10,7 +11,7 @@ android {
 
     defaultConfig {
         minSdk = 24
-        targetSdk=34
+        targetSdk = 34
     }
 
     buildTypes {
@@ -32,8 +33,8 @@ android {
 }
 
 dependencies {
-
-    implementation("androidx.core:core-ktx:1.10.0")
+    implementation("androidx.activity:activity-ktx:1.7.2")
+    implementation("androidx.core:core-ktx:1.12.0")
     implementation("androidx.appcompat:appcompat:1.6.1")
     implementation("com.google.android.material:material:1.9.0")
     implementation(project(":box"))
